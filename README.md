@@ -46,6 +46,7 @@ short:
 | ----------------------------------- | ------- | ---------------------------------------------------------------- |
 | `PROVIDER`                          | both    | `apifootball` (default) or `sportradar`.                         |
 | `APIFOOTBALL_KEY`                   | server  | API-Football secret used by `/api/*` serverless handlers.        |
+| `APIFOOTBALL_SEASON`                | server  | Optional season override for `/api/fixtures` (e.g. `2024` on free tier). |
 | `FORCE_DEMO_MODE`                   | both    | Explicitly force demo mode (`true`/`false`) for all runtimes.    |
 | `VITE_FORCE_DEMO_MODE`              | browser | Optional client-only demo override for local preview/testing.     |
 | `SPORTRADAR_KEY`                    | server  | Optional SportRadar key.                                         |
@@ -214,6 +215,7 @@ Set these for **Production** (and optionally Preview/Development):
 
 - `PROVIDER=apifootball`
 - `APIFOOTBALL_KEY=...`
+- `APIFOOTBALL_SEASON=2024` (recommended on free plan)
 - `FORCE_DEMO_MODE=false`
 - `CRON_SECRET=<long-random-secret>`
 - `SUPABASE_URL=...`
@@ -300,12 +302,13 @@ Free plan notes (as documented by API-Football):
 - ~100 requests/day on free tier.
 - Base URL: `https://v3.football.api-sports.io`
 - Auth header: `x-apisports-key: YOUR_KEY`
+- Free tier season coverage is limited (your sample returned `2022` to `2024`).
 
 ### 11.2 Smoke test your key locally
 
 ```bash
 curl --request GET \
-  --url "https://v3.football.api-sports.io/fixtures?league=39&season=2026&date=2026-04-25" \
+  --url "https://v3.football.api-sports.io/fixtures?league=39&season=2024&date=2026-04-25" \
   --header "x-apisports-key: YOUR_API_KEY"
 ```
 
@@ -315,6 +318,7 @@ If this returns JSON with `response`, the key is valid.
 
 1. Put key in `.env` for local:
    - `APIFOOTBALL_KEY=...`
+   - `APIFOOTBALL_SEASON=2024` (for free plan)
    - `FORCE_DEMO_MODE=false`
 2. In Vercel env vars, set the same production values.
 3. Redeploy.
@@ -329,6 +333,14 @@ If this returns JSON with `response`, the key is valid.
 ---
 
 ## 12. If API-Football does not work: free fallback options
+
+Before switching provider entirely, try this first:
+- Keep `PROVIDER=apifootball`
+- Set `APIFOOTBALL_SEASON=2024`
+- Redeploy
+
+This keeps your existing integration unchanged while staying inside free-plan
+season limits.
 
 ### Option A — OpenLigaDB (fully free, no key)
 
