@@ -4,6 +4,10 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Full-stack soccer prediction dashboard with a self-improving Dixon-Coles Poisson engine.",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "npm@10.9.7",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
