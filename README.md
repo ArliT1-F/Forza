@@ -330,6 +330,20 @@ If this returns JSON with `response`, the key is valid.
    during outages).
 3. Demo banner should not appear unless you explicitly forced demo mode.
 
+### 11.5 Free plan + live results (important)
+
+API-Football free plans can block newer season queries (for example 2026), but
+they can still return current live matches through:
+
+```bash
+GET /fixtures?live=all
+```
+
+Forza now handles this automatically:
+- if season-based fixtures are blocked by plan limits, it falls back to
+  API-Football live-only feed (real live matches)
+- only if that fails too does it fall back to mock data
+
 ---
 
 ## 12. If API-Football does not work: free fallback options
