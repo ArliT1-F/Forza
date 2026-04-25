@@ -52,8 +52,10 @@ export default function App() {
       {(DEMO_MODE || degraded) && (
         <Banner kind={DEMO_MODE ? 'info' : 'warn'}>
           {DEMO_MODE
-            ? 'Demo mode: APIFOOTBALL_KEY is not set, rendering realistic mock matches.'
-            : 'API quota exceeded or upstream error. Showing last cached data.'}
+            ? 'Demo mode enabled via FORCE_DEMO_MODE / VITE_FORCE_DEMO_MODE.'
+            : fixtures.data?.demoFallback
+              ? 'Live API failed (missing key/quota/upstream). Showing demo fallback matches.'
+              : 'API quota exceeded or upstream error. Showing last cached data.'}
         </Banner>
       )}
 

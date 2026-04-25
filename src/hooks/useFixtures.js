@@ -8,7 +8,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { getProvider } from '../providers/index.js';
-import { REFRESH_INTERVALS, LEAGUE_IDS } from '../lib/config.js';
+import { mockProvider } from '../providers/mock.js';
+import { DEMO_MODE, REFRESH_INTERVALS, LEAGUE_IDS } from '../lib/config.js';
 
 /**
  * @param {{leagueIds?:number[], date?:string}} [opts]
@@ -17,6 +18,7 @@ import { REFRESH_INTERVALS, LEAGUE_IDS } from '../lib/config.js';
  *   provider: string,
  *   fetchedAt: string,
  *   degraded: boolean,
+ *   demoFallback: boolean,
  * }>}
  */
 export function useFixtures(opts = {}) {
@@ -27,13 +29,29 @@ export function useFixtures(opts = {}) {
     queryKey: ['fixtures', date, leagueIds.join(',')],
     queryFn: async () => {
       const provider = getProvider();
-      const matches = await provider.listFixtures({ date, leagueIds });
-      return {
-        matches,
-        provider: provider.name,
-        fetchedAt: new Date().toISOString(),
-        degraded: false,
-      };
+      try {
+        const matches = await provider.listFixtures({ date, leagueIds });
+        return {
+          matches,
+          provider: provider.name,
+          fetchedAt: new Date().toISOString(),
+          degraded: false,
+          demoFallback: false,
+        };
+      } catch (error) {
+        if (!DEMO_MODE && provider.name === 'apifootball') {
+          console.warn('[useFixtures] live fetch failed, using demo fallback:', error);
+          const matches = await mockProvider.listFixtures();
+          return {
+            matches,
+            provider: 'mock-fallback',
+            fetchedAt: new Date().toISOString(),
+            degraded: true,
+            demoFallback: true,
+          };
+        }
+        throw error;
+      }
     },
     refetchInterval: (query) => {
       const matches = query.state.data?.matches || [];

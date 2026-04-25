@@ -31,11 +31,19 @@ function readEnv(key, fallback) {
 /** Which data provider to use. "apifootball" (default) or "sportradar". */
 export const PROVIDER = readEnv('VITE_PROVIDER') || readEnv('PROVIDER') || 'apifootball';
 
-/** True when the app should render mock data (no live key configured). */
-export const DEMO_MODE =
-  !readEnv('VITE_APIFOOTBALL_KEY') &&
-  !readEnv('APIFOOTBALL_KEY') &&
-  PROVIDER === 'apifootball';
+function envBool(key, fallback = false) {
+  const value = readEnv(key);
+  if (value === undefined || value === null || value === '') return fallback;
+  return ['1', 'true', 'yes', 'no'].includes(String(value).trim().toLowerCase());
+}
+
+export const FORCE_DEMO_MODE =
+  envBool('VITE_FORCE_DEMO_MODE') ||
+  envBool('VITE_DEMO_MODE') ||
+  envBool('FORCE_DEMO_MODE') ||
+  envBool('DEMO_MODE');
+
+export const DEMO_MODE = PROVIDER === 'apifootball' && FORCE_DEMO_MODE;
 
 /**
  * Major leagues we cover. IDs map to API-Football's internal league IDs.
