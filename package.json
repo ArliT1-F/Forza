@@ -4,6 +4,10 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Full-stack soccer prediction dashboard with a self-improving Dixon-Coles Poisson engine.",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "npm@10.9.7",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -13,8 +17,8 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
     "@tanstack/react-query": "^5.56.2",
-    "@vercel/analytics": "2.0.1",
-    "@vercel/speed-insights": "2.0.0",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.12.7"

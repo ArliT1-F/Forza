@@ -30,8 +30,10 @@ npm run dev
 npx vercel dev
 ```
 
-If `APIFOOTBALL_KEY` is not set, the app automatically enters **demo mode**
-and renders 8 realistic mock matches so the UI is fully visible.
+Demo mode is now **explicit** (set `FORCE_DEMO_MODE=true` or
+`VITE_FORCE_DEMO_MODE=true`). If live API calls fail (missing key, quota, or
+upstream outage), the UI automatically falls back to mock fixtures so the app
+still renders.
 
 ---
 
@@ -43,7 +45,10 @@ short:
 | Variable                            | Scope   | Purpose                                                          |
 | ----------------------------------- | ------- | ---------------------------------------------------------------- |
 | `PROVIDER`                          | both    | `apifootball` (default) or `sportradar`.                         |
-| `APIFOOTBALL_KEY`                   | server  | API-Football secret. Unset → demo mode.                          |
+| `APIFOOTBALL_KEY`                   | server  | API-Football secret used by `/api/*` serverless handlers.        |
+| `APIFOOTBALL_SEASON`                | server  | Optional season override for `/api/fixtures` (e.g. `2024` on free tier). |
+| `FORCE_DEMO_MODE`                   | both    | Explicitly force demo mode (`true`/`false`) for all runtimes.    |
+| `VITE_FORCE_DEMO_MODE`              | browser | Optional client-only demo override for local preview/testing.     |
 | `SPORTRADAR_KEY`                    | server  | Optional SportRadar key.                                         |
 | `NEXT_PUBLIC_SUPABASE_URL`          | browser | Supabase project URL.                                            |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY`     | browser | Public anon key (read-only through RLS).                         |
@@ -186,19 +191,200 @@ data"_. Full outages do not take the dashboard down.
 
 ---
 
-## 9. Deploying to Vercel
+## 9. Vercel production setup (Forza / Froza)
+
+### 9.1 Create and link the project
 
 ```bash
 vercel link
-vercel env add APIFOOTBALL_KEY        # repeat for each env var
+```
+
+When prompted:
+- Framework preset: **Vite**
+- Build command: `npm run build`
+- Output directory: `dist`
+
+(`vercel.json` already contains the same defaults plus cron configuration and
+API function limits.)
+
+### 9.2 Add required environment variables in Vercel
+
+Project → **Settings** → **Environment Variables**.
+
+Set these for **Production** (and optionally Preview/Development):
+
+- `PROVIDER=apifootball`
+- `APIFOOTBALL_KEY=...`
+- `APIFOOTBALL_SEASON=2024` (recommended on free plan)
+- `FORCE_DEMO_MODE=false`
+- `CRON_SECRET=<long-random-secret>`
+- `SUPABASE_URL=...`
+- `SUPABASE_SERVICE_ROLE_KEY=...`
+- `NEXT_PUBLIC_SUPABASE_URL=...`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY=...`
+
+Optional:
+- `VITE_FORCE_DEMO_MODE=true` (only for explicit demo previews)
+- `SPORTRADAR_KEY=...` (only if enabling the SportRadar adapter)
+
+### 9.3 Enable Vercel Analytics + Speed Insights
+
+This repository now includes:
+- `@vercel/analytics`
+- `@vercel/speed-insights`
+
+and mounts both in `src/main.jsx`.
+
+In Vercel dashboard, open your project:
+1. **Analytics** tab → click **Enable** (if not already enabled).
+2. **Speed Insights** tab → click **Enable**.
+
+No extra API key is required for either feature on Vercel-hosted deployments.
+
+### 9.4 Deploy
+
+```bash
 vercel --prod
 ```
 
-Vercel picks up `vercel.json` automatically and provisions the three
-cron jobs.
+Vercel provisions the three cron jobs from `vercel.json`:
+- `/api/ingest-results` (02:00 UTC)
+- `/api/retrain` (03:00 UTC)
+- `/api/calibrate` (04:00 UTC)
+
+### 9.5 Custom domain suggestion
+
+Domain checks run on 2026-04-25 showed these as available:
+
+- `forzapredict.com` (clean + brand-aligned)
+- `forzaforecast.com`
+- `froza.app`
+
+Recommended default: **`forzapredict.com`**.
+
+To add:
+1. Vercel Project → **Settings** → **Domains**.
+2. Add the domain.
+3. If bought externally, create the DNS records Vercel shows.
+4. Wait for SSL issuance (automatic).
 
 ---
 
-## 10. License
+## 10. Why demo mode was always enabled (and fix)
+
+Root cause:
+- Frontend code was inferring demo mode from `APIFOOTBALL_KEY`.
+- On Vercel, `APIFOOTBALL_KEY` is server-only and not exposed to browser code.
+- Result: browser always saw "missing key" and forced demo mode.
+
+Fix implemented:
+- Demo mode is now controlled only by explicit flags:
+  - `FORCE_DEMO_MODE`
+  - `VITE_FORCE_DEMO_MODE` / `VITE_DEMO_MODE` (legacy compatibility kept)
+- Live mode remains default when these are false.
+- If live API fails, the app now degrades gracefully to mock fixtures with a
+  clear warning banner.
+
+---
+
+## 11. API-Football setup guide (step by step)
+
+### 11.1 Create account and get key
+
+1. Go to `https://dashboard.api-football.com/register`.
+2. Sign up (email or Google).
+3. Verify email.
+4. In dashboard, open **Account → My Access**.
+5. Copy your API key.
+
+Free plan notes (as documented by API-Football):
+- No credit card required.
+- ~100 requests/day on free tier.
+- Base URL: `https://v3.football.api-sports.io`
+- Auth header: `x-apisports-key: YOUR_KEY`
+- Free tier season coverage is limited (your sample returned `2022` to `2024`).
+
+### 11.2 Smoke test your key locally
+
+```bash
+curl --request GET \
+  --url "https://v3.football.api-sports.io/fixtures?league=39&season=2024&date=2026-04-25" \
+  --header "x-apisports-key: YOUR_API_KEY"
+```
+
+If this returns JSON with `response`, the key is valid.
+
+### 11.3 Configure Forza
+
+1. Put key in `.env` for local:
+   - `APIFOOTBALL_KEY=...`
+   - `APIFOOTBALL_SEASON=2024` (for free plan)
+   - `FORCE_DEMO_MODE=false`
+2. In Vercel env vars, set the same production values.
+3. Redeploy.
+
+### 11.4 Verify in production
+
+1. Open the app.
+2. Top-right provider badge should show `apifootball` (or `mock-fallback` only
+   during outages).
+3. Demo banner should not appear unless you explicitly forced demo mode.
+
+### 11.5 Free plan + live results (important)
+
+API-Football free plans can block newer season queries (for example 2026), but
+they can still return current live matches through:
+
+```bash
+GET /fixtures?live=all
+```
+
+Forza now handles this automatically:
+- if season-based fixtures are blocked by plan limits, it falls back to
+  API-Football live-only feed (real live matches)
+- only if that fails too does it fall back to mock data
+
+---
+
+## 12. If API-Football does not work: free fallback options
+
+Before switching provider entirely, try this first:
+- Keep `PROVIDER=apifootball`
+- Set `APIFOOTBALL_SEASON=2024`
+- Redeploy
+
+This keeps your existing integration unchanged while staying inside free-plan
+season limits.
+
+### Option A — OpenLigaDB (fully free, no key)
+
+- Site: `https://www.openligadb.de/`
+- Auth: none
+- Example endpoint:
+  - `https://api.openligadb.de/getmatchdata/bl1/2025`
+
+Pros:
+- No key management.
+- Good for prototypes and Bundesliga-centric apps.
+
+Tradeoff:
+- Coverage and schema differ from API-Football.
+
+### Option B — TheSportsDB (free dev/test key)
+
+- Docs: `https://www.thesportsdb.com/documentation`
+- Common free test key in docs: `123`
+- Example:
+  - `https://www.thesportsdb.com/api/v1/json/123/searchteams.php?t=Arsenal`
+
+Pros:
+- Fast to test integration.
+
+Tradeoff:
+- Free key is mainly for development/educational usage.
+
+---
+
+## 13. License
 
 MIT — see [LICENSE](./LICENSE).

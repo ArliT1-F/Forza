@@ -22,13 +22,15 @@ const DEFAULT_LEAGUES = [39, 140, 135, 78, 61, 2, 3, 253, 71, 88, 94, 203];
 export default async function handler(req, res) {
   const date = (req.query.date && String(req.query.date)) || new Date().toISOString().slice(0, 10);
   const live = req.query.live === 'all' || req.query.live === 'true';
+  const seasonParam = req.query.season ? Number(String(req.query.season)) : undefined;
+  const season = Number.isFinite(seasonParam) ? seasonParam : undefined;
   const leaguesParam = req.query.leagues ? String(req.query.leagues) : '';
   const leagueIds = leaguesParam
     ? leaguesParam.split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n))
     : DEFAULT_LEAGUES;
 
   try {
-    const data = await fetchFixturesForLeagues({ date, leagueIds, live });
+    const data = await fetchFixturesForLeagues({ date, leagueIds, live, season });
 
     // Fire-and-forget cache update so graceful degradation has something to serve.
     try {
@@ -70,6 +72,15 @@ export default async function handler(req, res) {
     } catch (e) {
       console.warn('[api/fixtures] cache fallback failed:', e.message);
     }
-    res.status(502).json({ error: err.message, degraded: true });
+    const message = err?.message || 'Upstream fixtures request failed';
+    if (/Free plans do not have access to this season/i.test(message)) {
+      res.status(402).json({
+        error: message,
+        code: 'APIFOOTBALL_SEASON_PLAN_LIMIT',
+        degraded: true,
+      });
+      return;
+    }
+    res.status(502).json({ error: message, degraded: true });
   }
 }

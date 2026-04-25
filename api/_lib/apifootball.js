@@ -34,7 +34,12 @@ export async function apifootballGet(pathAndQuery) {
  */
 export async function fetchFixturesForLeagues({ date, leagueIds, live, season }) {
   const year = Number((date || new Date().toISOString().slice(0, 10)).slice(0, 4));
-  const s = season || year;
+  const envSeason = Number(process.env.APIFOOTBALL_SEASON);
+  const parsedSeason = Number(season);
+  const s =
+    (Number.isFinite(parsedSeason) && parsedSeason) ||
+    (Number.isFinite(envSeason) && envSeason) ||
+    year;
   const tasks = leagueIds.map(async (leagueId) => {
     const q = new URLSearchParams();
     if (live) {
@@ -47,13 +52,27 @@ export async function fetchFixturesForLeagues({ date, leagueIds, live, season })
     }
     try {
       const json = await apifootballGet(`/fixtures?${q.toString()}`);
-      return json?.response ?? [];
+      return { ok: true, leagueId, data: json?.response ?? [], error: null };
     } catch (e) {
-      // One failing league shouldn't nuke the whole page.
-      console.error(`[api/fixtures] league ${leagueId} failed:`, e.message);
-      return [];
+      const message = e?.message || String(e);
+      // One failing league shouldn't nuke the whole page unless all leagues fail.
+      console.error(`[api/fixtures] league ${leagueId} failed:`, message);
+      return { ok: false, leagueId, data: [], error: message };
     }
   });
-  const arrays = await Promise.all(tasks);
+  const results = await Promise.all(tasks);
+  const arrays = results.map((r) => r.data);
+  const failures = results.filter((r) => !r.ok);
+
+  if (failures.length === leagueIds.length) {
+    const first = failures[0];
+    const err = new Error(
+      `API-Football failed for all requested leagues. First error (league ${first.leagueId}): ${first.error}`,
+    );
+    err.code = 'APIFOOTBALL_ALL_LEAGUES_FAILED';
+    err.failures = failures;
+    throw err;
+  }
+
   return arrays.flat();
 }

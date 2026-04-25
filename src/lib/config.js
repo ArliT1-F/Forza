@@ -34,15 +34,13 @@ export const PROVIDER = readEnv('VITE_PROVIDER') || readEnv('PROVIDER') || 'apif
 function envBool(key, fallback = false) {
   const value = readEnv(key);
   if (value === undefined || value === null || value === '') return fallback;
-  return ['1', 'true', 'yes', 'no'].includes(String(value).trim().toLowerCase());
+  return ['1', 'true', 'yes', 'on'].includes(String(value).trim().toLowerCase());
 }
-
 export const FORCE_DEMO_MODE =
   envBool('VITE_FORCE_DEMO_MODE') ||
   envBool('VITE_DEMO_MODE') ||
   envBool('FORCE_DEMO_MODE') ||
   envBool('DEMO_MODE');
-
 export const DEMO_MODE = PROVIDER === 'apifootball' && FORCE_DEMO_MODE;
 
 /**

@@ -19,6 +19,7 @@ import { DEMO_MODE, REFRESH_INTERVALS, LEAGUE_IDS } from '../lib/config.js';
  *   fetchedAt: string,
  *   degraded: boolean,
  *   demoFallback: boolean,
+ *   liveFallback: boolean,
  * }>}
  */
 export function useFixtures(opts = {}) {
@@ -37,9 +38,31 @@ export function useFixtures(opts = {}) {
           fetchedAt: new Date().toISOString(),
           degraded: false,
           demoFallback: false,
+          liveFallback: false,
         };
       } catch (error) {
+        const message = error?.message || String(error);
+        // If live provider fetch fails (missing key/quota/upstream), keep the
+        // dashboard usable by falling back to mock fixtures.
         if (!DEMO_MODE && provider.name === 'apifootball') {
+          const seasonPlanLimited = /APIFOOTBALL_SEASON_PLAN_LIMIT|Free plans do not have access to this season/i.test(
+            message,
+          );
+          if (seasonPlanLimited) {
+            try {
+              const matches = await provider.listFixtures({ live: true, leagueIds });
+              return {
+                matches,
+                provider: 'apifootball-live',
+                fetchedAt: new Date().toISOString(),
+                degraded: true,
+                demoFallback: false,
+                liveFallback: true,
+              };
+            } catch (liveError) {
+              console.warn('[useFixtures] live-only fallback failed:', liveError);
+            }
+          }
           console.warn('[useFixtures] live fetch failed, using demo fallback:', error);
           const matches = await mockProvider.listFixtures();
           return {
@@ -48,6 +71,7 @@ export function useFixtures(opts = {}) {
             fetchedAt: new Date().toISOString(),
             degraded: true,
             demoFallback: true,
+            liveFallback: false,
           };
         }
         throw error;
