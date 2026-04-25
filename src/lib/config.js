@@ -36,18 +36,11 @@ function envBool(key, fallback = false) {
   if (value === undefined || value === null || value === '') return fallback;
   return ['1', 'true', 'yes', 'on'].includes(String(value).trim().toLowerCase());
 }
-
-/**
- * Force demo mode from env. We keep this explicit because APIFOOTBALL_KEY is
- * server-only on Vercel and is not readable by browser code.
- */
 export const FORCE_DEMO_MODE =
   envBool('VITE_FORCE_DEMO_MODE') ||
   envBool('VITE_DEMO_MODE') ||
   envBool('FORCE_DEMO_MODE') ||
   envBool('DEMO_MODE');
-
-/** Backwards-compatible alias used across the app. */
 export const DEMO_MODE = PROVIDER === 'apifootball' && FORCE_DEMO_MODE;
 
 /**
